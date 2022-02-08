@@ -36,13 +36,28 @@ const userController = {
     res.redirect('/signin')
   },
   getUser: (req, res, next) => {
-    return User.findByPk(req.params.id, {
-      include: [{
-        model: Comment, include: [Restaurant]
-      }]
-    })
-      .then(user => {
-        return res.render('users/profile', { user: user.toJSON() })
+    const userId = req.params.id
+    return Promise.all([
+      User.findByPk(userId, {
+        include: [
+          { model: User, as: 'Followers' },
+          { model: User, as: 'Followings' },
+          { model: Restaurant, as: 'FavoritedRestaurants' }
+        ]
+      }),
+      Comment.findAll({
+        include: [Restaurant],
+        where: { user_id: userId },
+        group: 'restaurant_id',
+        nest: true,
+        raw: true
+      })
+    ])
+      .then(([user, commentedRestaurants]) => {
+        return res.render('users/profile', {
+          user: user.toJSON(),
+          commentedRestaurants
+        })
       })
       .catch(err => next(err))
   },
